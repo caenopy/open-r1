@@ -33,6 +33,23 @@ accelerate launch --config_file=recipes/accelerate_configs/zero3.yaml src/open_r
     --eval_strategy steps \
     --eval_steps 100 \
     --output_dir data/Qwen2.5-1.5B-Open-R1-Distill
+    
+# One 1 node of 1 x A100s
+accelerate launch --config_file=recipes/accelerate_configs/single_a100.yaml src/open_r1/sft.py \
+    --model_name_or_path Qwen/Qwen2.5-1.5B-Instruct \
+    --dataset_name HuggingFaceH4/Bespoke-Stratos-17k \
+    --learning_rate 2.0e-5 \
+    --num_train_epochs 1 \
+    --packing \
+    --max_seq_length 1024 \
+    --per_device_train_batch_size 1 \
+    --gradient_accumulation_steps 8 \
+    --gradient_checkpointing \
+    --bf16 \
+    --logging_steps 5 \
+    --eval_strategy steps \
+    --eval_steps 100 \
+    --output_dir data/Qwen2.5-1.5B-Open-R1-Distill
 """
 
 import logging
