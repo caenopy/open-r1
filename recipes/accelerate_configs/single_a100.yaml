@@ -1,0 +1,18 @@
+compute_environment: LOCAL_MACHINE
+debug: false
+# We no longer need the DeepSpeed config if training on a single GPU,
+# so we remove it. (Alternatively, you could leave it in if you want to use
+# DeepSpeed’s optimization features, but many users find it simpler to disable it.)
+distributed_type: NO
+downcast_bf16: 'no'
+machine_rank: 0
+main_training_function: main
+mixed_precision: bf16
+num_machines: 1
+num_processes: 1  # change from 8 processes to 1
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false

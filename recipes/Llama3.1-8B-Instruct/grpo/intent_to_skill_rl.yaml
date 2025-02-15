@@ -1,0 +1,53 @@
+# Model arguments
+model_name_or_path: meta-llama/Llama-3.1-8B-Instruct
+model_revision: main
+load_in_4bit: true                # Enable 4-bit quantization
+bnb_4bit_compute_dtype: fp16      # Use FP16 for compute; adjust if needed
+bnb_4bit_quant_type: nf4          # Example quantization type (options typically: "fp4", "nf4")
+bnb_4bit_use_double_quant: true   # Optionally enable double quantization for improved quality
+attn_implementation: flash_attention_2
+fp16: true
+
+use_peft: true
+lora_task_type: CAUSAL_LM
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_train_bias: false
+lora_target_modules: ['k_proj', 'q_proj', 'v_proj', 'o_proj', "gate_proj", "down_proj", "up_proj"]
+lora_modules_to_save: ["lm_head"]
+
+# Dataset
+dataset_name: dummy
+
+# Num processes is less by 1 as vLLM is using 1 GPU
+num_processes: 7
+
+use_vllm: true
+vllm_device: auto
+vllm_gpu_memory_utilization: 0.7
+do_eval: false
+gradient_accumulation_steps: 8
+gradient_checkpointing: true
+gradient_checkpointing_kwargs:
+  use_reentrant: false
+learning_rate: 3.0e-06
+log_level: info
+logging_steps: 1
+logging_strategy: steps
+lr_scheduler_type: cosine
+max_prompt_length: 2048
+max_completion_length: 512
+max_steps: -1
+num_generations: 7
+num_train_epochs: 1
+output_dir: models/Llama3.1-8B-Instruct-intent-to-skill-rl
+overwrite_output_dir: true
+per_device_train_batch_size: 16
+push_to_hub: false
+report_to:
+- wandb
+save_strategy: "steps"
+save_steps: 10
+seed: 42
+warmup_ratio: 0.1
