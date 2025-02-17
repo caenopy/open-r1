@@ -116,7 +116,7 @@ Returns:
 
     return {"prompt": tokenizer.apply_chat_template(prefix, tokenize=False, continue_final_message=True)}
 
-def load_action_dataset(model_name):
+def load_grpo_dataset(model_name):
     """Load the action dataset."""
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -136,8 +136,18 @@ def load_action_dataset(model_name):
             'prompt': prompt,
             'intent': intent,
             'candidates': candidate_skills
-            }
+        }
         training_samples.append(sample)
 
-        dataset = Dataset.from_list(training_samples)
-        return dataset
+    dataset = Dataset.from_list(training_samples)
+    return dataset
+    
+def load_ppo_dataset(model_name):
+    """Load the action dataset."""
+    training_samples = []
+
+    for task in tasks:
+        training_samples.append({"task": task})
+
+    dataset = Dataset.from_list(training_samples)
+    return dataset

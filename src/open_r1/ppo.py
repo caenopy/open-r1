@@ -24,17 +24,12 @@ from datasets import load_dataset
 from transformers import set_seed
 from transformers.trainer_utils import get_last_checkpoint
 
-from open_r1.configs import GRPOConfig
-from open_r1.rewards import (
-    accuracy_reward,
-    format_reward,
-    get_cosine_scaled_reward,
-    get_repetition_penalty_reward,
-    reasoning_steps_reward,
-)
+from open_r1.configs import PPOConfig
+
 from open_r1.utils.callbacks import get_callbacks
-from open_r1.data import load_grpo_dataset
-from trl import GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
+from open_r1.data import load_ppo_dataset
+from open_r1.ppo_trainer import PPOTrainer
+from trl import ModelConfig, ScriptArguments, TrlParser, get_peft_config
 
 from transformers import AutoTokenizer
 
@@ -42,28 +37,12 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class GRPOScriptArguments(ScriptArguments):
+class PPOScriptArguments(ScriptArguments):
     """
-    Script arguments for the GRPO training script.
-
-    Args:
-        reward_funcs (`list[str]`):
-            List of reward functions. Possible values: 'format'.
+    Script arguments for the PPO training script.
     """
 
-    reward_funcs: list[str] = field(
-        default_factory=lambda: ["format"],
-        metadata={
-            "help": "List of reward functions. Possible values: 'format'"
-        },
-    )
-
-SYSTEM_PROMPT = (
-    "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant "
-    "first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning "
-    "process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., "
-    "<think> reasoning process here </think><answer> answer here </answer>"
-)
+    pass
 
 
 def main(script_args, training_args, model_args):
@@ -102,14 +81,9 @@ def main(script_args, training_args, model_args):
         logger.info(f"Checkpoint detected, resuming training at {last_checkpoint=}.")
 
     # Load the dataset
-    dataset = load_grpo_dataset(model_args.model_name_or_path)
+    dataset = load_ppo_dataset(model_args.model_name_or_path)
 
-    # Get reward functions
-    REWARD_FUNCS_REGISTRY = {
-        "format": format_reward,
-    }
-    reward_funcs = [REWARD_FUNCS_REGISTRY[func] for func in script_args.reward_funcs]
-
+    
     logger.info("*** Initializing model kwargs ***")
     torch_dtype = (
         model_args.torch_dtype if model_args.torch_dtype in ["auto", None] else getattr(torch, model_args.torch_dtype)
@@ -124,20 +98,33 @@ def main(script_args, training_args, model_args):
     training_args.model_init_kwargs = model_kwargs
 
     #############################
-    # Initialize the GRPO trainer
+    # Initialize the PPO trainer
     #############################
 
     processing_class = AutoTokenizer.from_pretrained(model_args.model_name_or_path)
     if processing_class.pad_token is None:
         processing_class.pad_token = processing_class.eos_token
     
-    trainer = GRPOTrainer(
+    peft_config = get_peft_config(model_args)
+    if peft_config is None:
+        ref_policy = AutoModelForCausalLM.from_pretrained(
+            model_args.model_name_or_path, trust_remote_code=model_args.trust_remote_code
+        )
+    else:
+        ref_policy = None
+    
+    value_model = AutoModelForSequenceClassification.from_pretrained(
+        model_args.model_name_or_path, trust_remote_code=model_args.trust_remote_code, num_labels=1
+    )
+    
+    trainer = PPOTrainer(
         model=model_args.model_name_or_path,
+        ref_model=ref_policy,
+        value_model=value_model,
         processing_class=processing_class,
-        reward_funcs=reward_funcs,
         args=training_args,
         train_dataset=dataset,
-        peft_config=get_peft_config(model_args),
+        peft_config=peft_config,
         callbacks=get_callbacks(training_args, model_args),
     )
 
@@ -194,6 +181,6 @@ def main(script_args, training_args, model_args):
 
 
 if __name__ == "__main__":
-    parser = TrlParser((GRPOScriptArguments, GRPOConfig, ModelConfig))
+    parser = TrlParser((PPOScriptArguments, PPOConfig, ModelConfig))
     script_args, training_args, model_args = parser.parse_args_and_config()
     main(script_args, training_args, model_args)
